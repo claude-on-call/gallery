@@ -11,7 +11,7 @@ import 'package:immich_mobile/constants/constants.dart';
 import 'package:immich_mobile/data/db/main/database.dart';
 import 'package:immich_mobile/domain/models/asset/base_asset.model.dart';
 import 'package:immich_mobile/domain/models/background_backup_status.model.dart';
-import 'package:immich_mobile/domain/models/metadata_key.dart';
+import 'package:immich_mobile/domain/models/settings_key.dart';
 import 'package:immich_mobile/domain/models/store.model.dart';
 import 'package:immich_mobile/domain/services/store.service.dart';
 import 'package:immich_mobile/entities/store.entity.dart';
@@ -748,7 +748,7 @@ void main() {
     }
 
     test('sets requiresWiFi true for photos when cellular photo upload is disabled', () async {
-      await MetadataRepository.instance.write(MetadataKey.backupUseCellularForPhotos, false);
+      await SettingsRepository.instance.write(SettingsKey.backupUseCellularForPhotos, false);
 
       final task = await buildTaskFor(LocalAssetStub.image1);
 
@@ -756,7 +756,7 @@ void main() {
     });
 
     test('sets requiresWiFi false for photos when cellular photo upload is enabled', () async {
-      await MetadataRepository.instance.write(MetadataKey.backupUseCellularForPhotos, true);
+      await SettingsRepository.instance.write(SettingsKey.backupUseCellularForPhotos, true);
 
       final task = await buildTaskFor(LocalAssetStub.image1);
 
@@ -770,7 +770,7 @@ void main() {
         type: AssetType.video,
         playbackStyle: AssetPlaybackStyle.video,
       );
-      await MetadataRepository.instance.write(MetadataKey.backupUseCellularForVideos, false);
+      await SettingsRepository.instance.write(SettingsKey.backupUseCellularForVideos, false);
 
       final task = await buildTaskFor(video);
 
@@ -784,7 +784,7 @@ void main() {
         type: AssetType.video,
         playbackStyle: AssetPlaybackStyle.video,
       );
-      await MetadataRepository.instance.write(MetadataKey.backupUseCellularForVideos, true);
+      await SettingsRepository.instance.write(SettingsKey.backupUseCellularForVideos, true);
 
       final task = await buildTaskFor(video);
 
