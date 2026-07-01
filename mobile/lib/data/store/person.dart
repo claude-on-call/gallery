@@ -5,6 +5,8 @@ import 'package:immich_mobile/domain/models/person.model.dart';
 import 'package:immich_mobile/providers/infrastructure/db.provider.dart';
 // TODO(rewrite): Remove once user metadata is a store entry of its own
 import 'package:immich_mobile/providers/infrastructure/user_metadata.provider.dart';
+import 'package:immich_mobile/providers/user.provider.dart';
+import 'package:logging/logging.dart';
 
 /// People representing collections of faces and assets
 ///
@@ -18,10 +20,14 @@ extension type const PersonStore._(Provider<PersonMutations> _provider) implemen
   /// **NOTE:** This is not reactive to changes, and only hits the local DB
   AutoDisposeFutureProvider<Person?> byId(String personId) => _byIdProvider(personId);
 
-  /// Get the people present in the asset [assetId]
+  /// Get the people present in the asset keyed by [key.id], honoring [key.ownerId].
   ///
-  /// **NOTE:** This is not reactive to changes, and only hits the local DB
-  AutoDisposeFutureProvider<List<Person>> forAsset(String assetId) => _forAssetProvider(assetId);
+  /// The local sync DB only ever receives faces for assets the viewer owns (see
+  /// AGENTS.md), so for an asset owned by someone else this routes to the server's
+  /// asset-info endpoint instead, matching web's on-demand resolution. See issue #727.
+  ///
+  /// **NOTE:** This is not reactive to changes
+  AutoDisposeFutureProvider<List<Person>> forAsset(({String id, String ownerId}) key) => _forAssetProvider(key);
 
   /// Get all known people, honoring the user's minimum detected face count preference
   ///
@@ -37,9 +43,26 @@ final _byIdProvider = FutureProvider.autoDispose.family<Person?, String>(
   (ref, personId) => ref.watch(_peopleDb).get(personId),
 );
 
-final _forAssetProvider = FutureProvider.autoDispose.family<List<Person>, String>(
-  (ref, assetId) => ref.watch(_peopleDb).getAssetPeople(assetId),
-);
+final _log = Logger('PersonStore');
+
+final _forAssetProvider = FutureProvider.autoDispose.family<List<Person>, ({String id, String ownerId})>((
+  ref,
+  key,
+) async {
+  final currentUserId = ref.watch(currentUserProvider.select((user) => user?.id));
+  if (key.ownerId != currentUserId) {
+    // The supplementary people strip is best-effort for non-owned assets: a transient
+    // network/server failure should silently hide it (as the prior local-Drift lookup did)
+    // rather than surface a visible error, so swallow the failure and return no people.
+    try {
+      return await ref.watch(personApiRepositoryProvider).getAssetPeople(key.id);
+    } catch (error, stackTrace) {
+      _log.warning('Failed to fetch people for non-owned asset ${key.id}', error, stackTrace);
+      return const [];
+    }
+  }
+  return ref.watch(_peopleDb).getAssetPeople(key.id);
+});
 
 final _allProvider = StreamProvider.autoDispose<List<Person>>((ref) async* {
   final prefs = await ref.watch(userMetadataPreferencesProvider.future);
