@@ -46,6 +46,12 @@
     onClose?: () => void;
     isPlayingOriginalVideo: boolean;
     setPlayOriginalVideo: (value: boolean) => void;
+    /**
+     * Present on shared-space surfaces (direct space, space album, space person). Gates and
+     * narrows the add-to-album action for assets the caller does not own — see
+     * `getAssetActions` (#889).
+     */
+    space?: { id: string; canWrite: boolean };
   }
 
   let {
@@ -59,6 +65,7 @@
     onClose,
     isPlayingOriginalVideo = false,
     setPlayOriginalVideo,
+    space,
   }: Props = $props();
 
   const isOwner = $derived(authManager.authenticated && asset.ownerId === authManager.user.id);
@@ -81,7 +88,7 @@
     onAction: () => setPlayOriginalVideo(!isPlayingOriginalVideo),
   });
 
-  const Actions = $derived(getAssetActions($t, { ...asset, stackPrimaryAssetId: stack?.primaryAssetId }, album));
+  const Actions = $derived(getAssetActions($t, { ...asset, stackPrimaryAssetId: stack?.primaryAssetId }, { space, album }));
   const sharedLink = getSharedLink();
 </script>
 
