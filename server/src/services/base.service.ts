@@ -83,6 +83,7 @@ import { FaceVerdictService } from 'src/services/face-verdict.service.js';
 import { IdentityMergePropagationService } from 'src/services/identity-merge-propagation.service.js';
 import { AccessRequest, checkAccess, requireAccess } from 'src/utils/access.js';
 import { getConfig, updateConfig } from 'src/utils/config.js';
+import { GameRepository } from 'src/repositories/game.repository.js';
 import {
   ContentDisposition,
   ImmichFileResponse,
@@ -126,6 +127,7 @@ export const BASE_SERVICE_DEPENDENCIES = [
   FaceRepairScanRepository,
   FaceRepairDeclineRepository,
   FacePersonVerdictRepository,
+  GameRepository,
   IntegrityRepository,
   JobRepository,
   LibraryRepository,
@@ -199,6 +201,7 @@ export class BaseService {
     protected faceRepairScanRepository: FaceRepairScanRepository,
     protected faceRepairDeclineRepository: FaceRepairDeclineRepository,
     protected facePersonVerdictRepository: FacePersonVerdictRepository,
+    protected gameRepository: GameRepository,
     protected integrityRepository: IntegrityRepository,
     protected jobRepository: JobRepository,
     protected libraryRepository: LibraryRepository,
@@ -293,6 +296,7 @@ export class BaseService {
       ctx.faceRepairScanRepository,
       ctx.faceRepairDeclineRepository,
       ctx.facePersonVerdictRepository,
+      ctx.gameRepository,
       ctx.integrityRepository,
       ctx.jobRepository,
       ctx.libraryRepository,
