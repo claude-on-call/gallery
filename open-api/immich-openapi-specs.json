@@ -36538,6 +36538,36 @@
         },
         "type": "object"
       },
+      "PhotoGuesserResponse": {
+        "properties": {
+          "includePartners": {
+            "description": "Whether PhotoGuesser solo rounds include partner photos",
+            "type": "boolean"
+          },
+          "includeSpaces": {
+            "description": "Whether PhotoGuesser solo rounds include shared-space photos",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "includePartners",
+          "includeSpaces"
+        ],
+        "type": "object"
+      },
+      "PhotoGuesserUpdate": {
+        "properties": {
+          "includePartners": {
+            "description": "Whether PhotoGuesser solo rounds include partner photos",
+            "type": "boolean"
+          },
+          "includeSpaces": {
+            "description": "Whether PhotoGuesser solo rounds include shared-space photos",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
       "PinCodeChangeDto": {
         "properties": {
           "newPinCode": {
@@ -46625,6 +46655,9 @@
           "people": {
             "$ref": "#/components/schemas/PeopleResponse"
           },
+          "photoGuesser": {
+            "$ref": "#/components/schemas/PhotoGuesserResponse"
+          },
           "purchase": {
             "$ref": "#/components/schemas/PurchaseResponse"
           },
@@ -46649,6 +46682,7 @@
           "folders",
           "memories",
           "people",
+          "photoGuesser",
           "purchase",
           "ratings",
           "recentlyAdded",
@@ -46682,6 +46716,9 @@
           },
           "people": {
             "$ref": "#/components/schemas/PeopleUpdate"
+          },
+          "photoGuesser": {
+            "$ref": "#/components/schemas/PhotoGuesserUpdate"
           },
           "purchase": {
             "$ref": "#/components/schemas/PurchaseUpdate"
