@@ -126,6 +126,10 @@ import { UserMetadataAuditTable } from 'src/schema/tables/user-metadata-audit.ta
 import { UserMetadataTable } from 'src/schema/tables/user-metadata.table.js';
 import { UserTable } from 'src/schema/tables/user.table.js';
 import { VersionHistoryTable } from 'src/schema/tables/version-history.table.js';
+import { FamilyAccessTable } from 'src/schema/tables/family-access.table.js';
+import { FamilyUnionChildTable } from 'src/schema/tables/family-union-child.table.js';
+import { FamilyUnionPartnerTable } from 'src/schema/tables/family-union-partner.table.js';
+import { FamilyUnionTable } from 'src/schema/tables/family-union.table.js';
 import {
   VideoStreamSegmentTable,
   VideoStreamSessionTable,
@@ -171,6 +175,10 @@ export class ImmichDatabase {
     FaceRepairScanFlaggedFaceTable,
     FaceRepairScanTable,
     FaceSearchTable,
+    FamilyUnionTable,
+    FamilyUnionPartnerTable,
+    FamilyUnionChildTable,
+    FamilyAccessTable,
     GeodataPlacesTable,
     IntegrityReportTable,
     LibraryTable,
@@ -317,6 +325,11 @@ export interface DB {
   face_repair_decline: FaceRepairDeclineTable;
   face_repair_scan_flagged_face: FaceRepairScanFlaggedFaceTable;
   face_repair_scan: FaceRepairScanTable;
+
+  family_union: FamilyUnionTable;
+  family_union_partner: FamilyUnionPartnerTable;
+  family_union_child: FamilyUnionChildTable;
+  family_access: FamilyAccessTable;
 
   geodata_places: GeodataPlacesTable;
 
