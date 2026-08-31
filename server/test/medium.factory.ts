@@ -98,6 +98,7 @@ import { mockEnvData } from 'test/repositories/config.repository.mock.js';
 import { newTelemetryRepositoryMock } from 'test/repositories/telemetry.repository.mock.js';
 import { factory, newDate, newEmbedding, newUuid } from 'test/small.factory.js';
 import { automock, wait } from 'test/utils.js';
+import { FamilyRepository } from 'src/repositories/family.repository.js';
 
 export const testAssetsDir = resolve(import.meta.dirname, '../../e2e/test-assets');
 
@@ -687,6 +688,7 @@ const newRealRepository = <T extends BaseServiceDeps[number]>(key: T, db: Kysely
     }
 
     case ClassificationRepository:
+    case FamilyRepository:
     case TagRepository: {
       return new key(db, LoggingRepository.create()) as InstanceType<T>;
     }
@@ -725,6 +727,7 @@ const newMockRepository = <T>(key: ClassConstructor<T>) => {
     case CryptoRepository:
     case FaceIdentityRepository:
     case FacePersonVerdictRepository:
+    case FamilyRepository:
     case LibraryRepository:
     case MemoryRepository:
     case IntegrityRepository:

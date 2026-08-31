@@ -83,6 +83,7 @@ import { FaceVerdictService } from 'src/services/face-verdict.service.js';
 import { IdentityMergePropagationService } from 'src/services/identity-merge-propagation.service.js';
 import { AccessRequest, checkAccess, requireAccess } from 'src/utils/access.js';
 import { getConfig, updateConfig } from 'src/utils/config.js';
+import { FamilyRepository } from 'src/repositories/family.repository.js';
 import {
   ContentDisposition,
   ImmichFileResponse,
@@ -237,6 +238,7 @@ export class BaseService {
     protected viewRepository: ViewRepository,
     protected websocketRepository: WebsocketRepository,
     protected workflowRepository: WorkflowRepository,
+    protected familyRepository: FamilyRepository,
   ) {
     this.logger.setContext(this.constructor.name);
     this.storageCore = StorageCore.create(
