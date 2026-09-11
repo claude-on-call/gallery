@@ -32590,7 +32590,9 @@
           },
           "roundCount": {
             "description": "Number of rounds actually generated (may be less than requested)",
-            "type": "number"
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
           },
           "rounds": {
             "description": "Rounds, with answers withheld until guessed",
@@ -32601,10 +32603,13 @@
           },
           "scaleDays": {
             "description": "Frozen day scale used to score date rounds",
-            "type": "number"
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
           },
           "scaleKm": {
             "description": "Frozen distance scale used to score location rounds",
+            "format": "double",
             "type": "number"
           },
           "spaceId": {
@@ -32632,7 +32637,9 @@
         "properties": {
           "answered": {
             "description": "Number of rounds the caller has answered",
-            "type": "number"
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
           },
           "closedAt": {
             "description": "When this challenge was closed, if at all",
@@ -32661,7 +32668,9 @@
           },
           "locationRoundCount": {
             "description": "How many of the rounds are location rounds",
-            "type": "number"
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
           },
           "name": {
             "description": "Challenge name",
@@ -32674,14 +32683,19 @@
           },
           "roundCount": {
             "description": "Number of rounds actually generated (may be less than requested)",
-            "type": "number"
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
           },
           "scaleDays": {
             "description": "Frozen day scale used to score date rounds",
-            "type": "number"
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
           },
           "scaleKm": {
             "description": "Frozen distance scale used to score location rounds",
+            "format": "double",
             "type": "number"
           },
           "spaceId": {
@@ -32691,7 +32705,9 @@
           },
           "total": {
             "description": "The caller's total score across answered rounds",
-            "type": "number"
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
           }
         },
         "required": [
@@ -32741,14 +32757,19 @@
           },
           "roundCount": {
             "description": "Number of rounds actually generated (may be less than requested)",
-            "type": "number"
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
           },
           "scaleDays": {
             "description": "Frozen day scale used to score date rounds",
-            "type": "number"
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
           },
           "scaleKm": {
             "description": "Frozen distance scale used to score location rounds",
+            "format": "double",
             "type": "number"
           },
           "spaceId": {
@@ -32828,12 +32849,14 @@
           },
           "lat": {
             "description": "Guessed latitude, for a location round",
+            "format": "double",
             "maximum": 90,
             "minimum": -90,
             "type": "number"
           },
           "lon": {
             "description": "Guessed longitude, for a location round",
+            "format": "double",
             "maximum": 180,
             "minimum": -180,
             "type": "number"
@@ -32845,6 +32868,7 @@
         "properties": {
           "distanceKm": {
             "description": "Distance between the guess and the answer, in km",
+            "format": "double",
             "nullable": true,
             "type": "number"
           },
@@ -32858,18 +32882,22 @@
           },
           "guessLat": {
             "description": "Guessed latitude",
+            "format": "double",
             "nullable": true,
             "type": "number"
           },
           "guessLon": {
             "description": "Guessed longitude",
+            "format": "double",
             "nullable": true,
             "type": "number"
           },
           "offsetDays": {
             "description": "Day offset between the guess and the answer",
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
             "nullable": true,
-            "type": "number"
+            "type": "integer"
           },
           "roundId": {
             "description": "Round ID",
@@ -32877,7 +32905,9 @@
           },
           "score": {
             "description": "Score awarded for this guess",
-            "type": "number"
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
           },
           "userId": {
             "description": "User ID",
@@ -32904,7 +32934,9 @@
               "properties": {
                 "answered": {
                   "description": "Number of rounds answered",
-                  "type": "number"
+                  "maximum": 9007199254740991,
+                  "minimum": -9007199254740991,
+                  "type": "integer"
                 },
                 "name": {
                   "description": "User name",
@@ -32912,7 +32944,9 @@
                 },
                 "total": {
                   "description": "Total score across all guessed rounds",
-                  "type": "number"
+                  "maximum": 9007199254740991,
+                  "minimum": -9007199254740991,
+                  "type": "integer"
                 },
                 "userId": {
                   "description": "User ID",
@@ -32950,11 +32984,13 @@
               },
               "lat": {
                 "description": "Answer latitude, for a location round",
+                "format": "double",
                 "nullable": true,
                 "type": "number"
               },
               "lon": {
                 "description": "Answer longitude, for a location round",
+                "format": "double",
                 "nullable": true,
                 "type": "number"
               }
@@ -32983,23 +33019,28 @@
               },
               "distanceKm": {
                 "description": "Distance from the answer, in km",
+                "format": "double",
                 "nullable": true,
                 "type": "number"
               },
               "lat": {
                 "description": "Guessed latitude, for a location round",
+                "format": "double",
                 "nullable": true,
                 "type": "number"
               },
               "lon": {
                 "description": "Guessed longitude, for a location round",
+                "format": "double",
                 "nullable": true,
                 "type": "number"
               },
               "offsetDays": {
                 "description": "Day offset from the answer",
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
                 "nullable": true,
-                "type": "number"
+                "type": "integer"
               }
             },
             "required": [
@@ -33013,11 +33054,15 @@
           },
           "index": {
             "description": "Round index (0-based)",
-            "type": "number"
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
           },
           "score": {
             "description": "The caller's score for this round - present only once guessed",
-            "type": "number"
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
           },
           "type": {
             "$ref": "#/components/schemas/GameRoundType",
@@ -33062,7 +33107,9 @@
         "properties": {
           "answered": {
             "description": "Number of rounds the player answered",
-            "type": "number"
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
           },
           "createdAt": {
             "description": "Creation date",
@@ -33087,11 +33134,15 @@
           },
           "roundCount": {
             "description": "Number of rounds in the challenge",
-            "type": "number"
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
           },
           "total": {
             "description": "Total score across the rounds they answered",
-            "type": "number"
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
           }
         },
         "required": [
@@ -33142,23 +33193,33 @@
         "properties": {
           "averageScore": {
             "description": "Mean total across games played, rounded to whole points",
-            "type": "number"
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
           },
           "bestScore": {
             "description": "The highest total scored in a single game",
-            "type": "number"
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
           },
           "bestStreak": {
             "description": "The longest such run ever",
-            "type": "number"
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
           },
           "currentStreak": {
             "description": "Consecutive UTC days of fully played dailies, ending today or yesterday",
-            "type": "number"
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
           },
           "gamesPlayed": {
             "description": "How many games have at least one guess",
-            "type": "number"
+            "maximum": 9007199254740991,
+            "minimum": -9007199254740991,
+            "type": "integer"
           }
         },
         "required": [
@@ -33178,7 +33239,9 @@
               "properties": {
                 "daysPlayed": {
                   "description": "Number of daily challenges played this month",
-                  "type": "number"
+                  "maximum": 9007199254740991,
+                  "minimum": -9007199254740991,
+                  "type": "integer"
                 },
                 "name": {
                   "description": "User name",
@@ -33186,7 +33249,9 @@
                 },
                 "total": {
                   "description": "Total score across the month's daily challenges",
-                  "type": "number"
+                  "maximum": 9007199254740991,
+                  "minimum": -9007199254740991,
+                  "type": "integer"
                 },
                 "userId": {
                   "description": "User ID",
