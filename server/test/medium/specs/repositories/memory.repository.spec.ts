@@ -1,12 +1,12 @@
 import { Kysely } from 'kysely';
 import { DateTime } from 'luxon';
-import { AssetVisibility, MemoryType } from 'src/enum';
-import { LoggingRepository } from 'src/repositories/logging.repository';
-import { MemoryRepository } from 'src/repositories/memory.repository';
-import { DB } from 'src/schema';
-import { BaseService } from 'src/services/base.service';
-import { newMediumService } from 'test/medium.factory';
-import { getKyselyDB } from 'test/utils';
+import { AssetVisibility, MemoryType } from 'src/enum.js';
+import { LoggingRepository } from 'src/repositories/logging.repository.js';
+import { MemoryRepository } from 'src/repositories/memory.repository.js';
+import { DB } from 'src/schema/index.js';
+import { BaseService } from 'src/services/base.service.js';
+import { newMediumService } from 'test/medium.factory.js';
+import { getKyselyDB } from 'test/utils.js';
 
 let defaultDatabase: Kysely<DB>;
 
