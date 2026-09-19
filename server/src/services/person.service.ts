@@ -70,7 +70,6 @@ import { batched, findOrFail, isFaceSuggestionEnabled, isFacialRecognitionEnable
 import { applyResolvedIdentityMetadata } from 'src/utils/person-identity.js';
 import { getPreferences } from 'src/utils/preferences.js';
 import { Point, transformPoints } from 'src/utils/transform.js';
-import { FamilyLabelRepositories, FamilyLabelSet, resolveFamilyLabelSet } from 'src/utils/family-graph.js';
 
 const personKey = ({ ownerId, personGroupId }: PersonId) => `${ownerId}/${personGroupId}`;
 const FACE_IDENTITY_BACKFILL_CHUNK_SIZE = 1000;
