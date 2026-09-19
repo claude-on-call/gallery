@@ -324,7 +324,6 @@ export class PersonService extends BaseService {
           continue;
         }
 
-
         if (person.faceAssetId === null) {
           changeFeaturePhoto.set(personKey(person), person);
         }
