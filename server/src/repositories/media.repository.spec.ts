@@ -310,6 +310,25 @@ describe(MediaRepository.name, () => {
       expect(darkerPixel).toEqual({ r: 123, g: 123, b: 123 });
     });
 
+    it('should still fully desaturate when combined with invert', async () => {
+      // Regression test for a real sharp/libvips bug (reproduced even with a plain identity
+      // recomb matrix): calling `.recomb()` then `.negate()` produces all-zero output. Invert
+      // must be folded into the same linear(a, b) call as exposure/contrast instead of using
+      // `.negate()`, or saturation -100 + invert (with no exposure/contrast set, so linear()
+      // would otherwise only run for invert's sake) silently loses all color-correction effect.
+      const result = sut['applyEdits'](
+        sharp({
+          create: { width: 10, height: 10, channels: 4, background: { r: 200, g: 80, b: 40, alpha: 1 } },
+        }).png(),
+        [{ action: AssetEditAction.Adjust, parameters: { saturation: -100, invert: true } }],
+      );
+
+      const pixel = await getPixelColor(await result.toBuffer(), 5, 5);
+      expect(pixel.r).toBe(pixel.g);
+      expect(pixel.g).toBe(pixel.b);
+      expect(pixel.r).toBeGreaterThan(0);
+    });
+
     it('should be a no-op when the adjust edit has no parameters set', async () => {
       const result = sut['applyEdits'](
         sharp({
