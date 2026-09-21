@@ -20,7 +20,7 @@ import type {
 } from 'src/types.js';
 import { ORIENTATION_TO_SHARP_ROTATION } from 'src/constants.js';
 import { Exif } from 'src/database.js';
-import { AssetEditActionItem } from 'src/dtos/editing.dto.js';
+import { AdjustParameters, AssetEditActionItem } from 'src/dtos/editing.dto.js';
 import {
   AacProfile,
   Av1Profile,
@@ -153,7 +153,10 @@ export class MediaRepository {
     return this.getImageDecodingPipeline(input, options).raw().toBuffer({ resolveWithObject: true });
   }
 
-  private applyEdits(pipeline: Sharp, edits: AssetEditActionItem[]): Sharp {
+  // colorspace matches DecodeToBufferOptions.colorspace (a loosely-typed string at that call site,
+  // not the Colorspace enum) — defaulted so the many existing tests that call this directly for
+  // crop/rotate/mirror, and don't care about it, don't all need updating for an unrelated feature.
+  private applyEdits(pipeline: Sharp, edits: AssetEditActionItem[], colorspace: string = Colorspace.Srgb): Sharp {
     const crop = edits.find((edit) => edit.action === 'crop');
     if (crop) {
       pipeline = pipeline.extract({
@@ -164,13 +167,79 @@ export class MediaRepository {
       });
     }
 
-    const affineEditOperations = edits.filter((edit) => edit.action !== 'crop');
+    // Adjust is a color operation, not spatial, so it's excluded here and handled separately below.
+    const affineEditOperations = edits.filter((edit) => edit.action !== 'crop' && edit.action !== 'adjust');
     if (affineEditOperations.length > 0) {
       const { a, b, c, d } = createAffineMatrix(affineEditOperations);
       pipeline = pipeline.affine([
         [a, b],
         [c, d],
       ]);
+    }
+
+    const adjust = edits.find((edit) => edit.action === 'adjust');
+    if (adjust) {
+      pipeline = this.applyAdjust(pipeline, adjust.parameters, colorspace);
+    }
+
+    return pipeline;
+  }
+
+  // Deliberately implemented against the CSS Filter Effects formulas (not sharp's own
+  // `.modulate()`/convenience helpers) so the web client's live preview — which uses the
+  // real brightness()/contrast()/saturate()/invert() CSS filters — shows exactly what gets
+  // saved here, not an approximation. See specs/2026-09-20-image-adjust-tool-design.md.
+  //
+  // sharp's `.linear(a, b)` and `.negate()` are single option slots on the pipeline, not a
+  // queue of operations — its native code always applies recomb, then linear, then negate,
+  // regardless of JS call order, and a second `.linear()` call overwrites the first rather
+  // than composing with it. So exposure and contrast must be pre-combined into one (a, b)
+  // pair here (calling `.linear()` twice silently dropped exposure whenever contrast was
+  // also set), and invert — which always runs last — needs (a, b) algebraically adjusted to
+  // simulate running *before* exposure/contrast, or a negative exposure visibly brightens an
+  // inverted (film negative) image instead of darkening it.
+  private applyAdjust(pipeline: Sharp, parameters: AdjustParameters, colorspace: string): Sharp {
+    const { exposure, contrast, saturation, invert } = parameters;
+
+    if (exposure || contrast) {
+      // CSS brightness(amount): output = input * amount.
+      // CSS contrast(amount): output = (input - mid) * amount + mid, pivoting around the
+      // colorspace's mid-grey. sharp's raw pixel values are 16-bit when the configured output
+      // colorspace isn't sRGB (see pipelineColorspace() below), so the range isn't always 255.
+      const exposureAmount = 1 + (exposure ?? 0) / 100;
+      const contrastAmount = 1 + (contrast ?? 0) / 100;
+      const range = colorspace === Colorspace.Srgb ? 255 : 65_535;
+      const midpoint = range / 2;
+
+      // Composed as "exposure, then contrast": a single equivalent linear(a, b).
+      let a = exposureAmount * contrastAmount;
+      let b = midpoint * (1 - contrastAmount);
+
+      if (invert) {
+        // negate(a * v + b) = -a * v + (range - b). To make that equal what "invert the
+        // input first, then apply (a, b)" would give — a * (range - v) + b, i.e.
+        // -a * v + (a * range + b) — b must become range * (1 - a) - b. `a` is unchanged.
+        b = range * (1 - a) - b;
+      }
+
+      pipeline = pipeline.linear(a, b);
+    }
+
+    if (saturation) {
+      // CSS saturate(amount)'s matrix (https://www.w3.org/TR/filter-effects-1/#saturateEquivalent).
+      // Not sharp's .modulate({ saturation }), which works in HSL space and visibly disagrees
+      // with this RGB matrix at the same parameter value.
+      const s = 1 + saturation / 100;
+      pipeline = pipeline.recomb([
+        [0.213 + 0.787 * s, 0.715 - 0.715 * s, 0.072 - 0.072 * s],
+        [0.213 - 0.213 * s, 0.715 + 0.285 * s, 0.072 - 0.072 * s],
+        [0.213 - 0.213 * s, 0.715 - 0.715 * s, 0.072 + 0.928 * s],
+      ]);
+    }
+
+    if (invert) {
+      // Matches CSS invert(1) exactly — both are a plain per-channel value negation.
+      pipeline = pipeline.negate();
     }
 
     return pipeline;
@@ -212,7 +281,7 @@ export class MediaRepository {
     }
 
     if (options.edits && options.edits.length > 0) {
-      pipeline = this.applyEdits(pipeline, options.edits);
+      pipeline = this.applyEdits(pipeline, options.edits, options.colorspace);
     }
 
     if (options.size !== undefined) {
