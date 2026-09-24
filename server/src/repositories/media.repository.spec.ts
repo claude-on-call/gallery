@@ -8,6 +8,11 @@ import { LoggingRepository } from 'src/repositories/logging.repository.js';
 import { MediaRepository } from 'src/repositories/media.repository.js';
 import { automock } from 'test/utils.js';
 
+const buildSolidImage = (background: { r: number; g: number; b: number }) =>
+  sharp({
+    create: { width: 10, height: 10, channels: 4, background: { ...background, alpha: 1 } },
+  }).png();
+
 const getPixelColor = async (buffer: Buffer, x: number, y: number) => {
   const metadata = await sharp(buffer).metadata();
   const width = metadata.width!;
@@ -203,18 +208,15 @@ describe(MediaRepository.name, () => {
     });
 
     it('should use a different, non-hardcoded midpoint for a non-sRGB colorspace pipeline', async () => {
-      const image = () =>
-        sharp({
-          create: { width: 10, height: 10, channels: 4, background: { r: 200, g: 200, b: 200, alpha: 1 } },
-        }).png();
+      const background = { r: 200, g: 200, b: 200 };
 
       const srgbResult = sut['applyEdits'](
-        image(),
+        buildSolidImage(background),
         [{ action: AssetEditAction.Adjust, parameters: { contrast: 50 } }],
         Colorspace.Srgb,
       );
       const p3Result = sut['applyEdits'](
-        image(),
+        buildSolidImage(background),
         [{ action: AssetEditAction.Adjust, parameters: { contrast: 50 } }],
         Colorspace.P3,
       );
@@ -291,15 +293,12 @@ describe(MediaRepository.name, () => {
       // always negates last regardless of call order (`linear`/`negate` are single option slots,
       // not a queue), so exposure's (a, b) is algebraically pre-adjusted here to simulate invert
       // running first.
-      const image = () =>
-        sharp({
-          create: { width: 10, height: 10, channels: 4, background: { r: 50, g: 50, b: 50, alpha: 1 } },
-        }).png();
+      const background = { r: 50, g: 50, b: 50 };
 
-      const invertedOnly = sut['applyEdits'](image(), [
+      const invertedOnly = sut['applyEdits'](buildSolidImage(background), [
         { action: AssetEditAction.Adjust, parameters: { invert: true } },
       ]);
-      const invertedThenDarkened = sut['applyEdits'](image(), [
+      const invertedThenDarkened = sut['applyEdits'](buildSolidImage(background), [
         { action: AssetEditAction.Adjust, parameters: { exposure: -40, invert: true } },
       ]);
 
