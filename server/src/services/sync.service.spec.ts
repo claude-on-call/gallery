@@ -164,7 +164,6 @@ const streamAssetEdits = async (
       assetEditRow(AssetEditAction.Crop, { x: 0, y: 0, width: 10, height: 10 }),
       assetEditRow(AssetEditAction.Rotate, { angle: 90 }),
       assetEditRow(AssetEditAction.Mirror, { axis: MirrorAxis.Horizontal }),
-      assetEditRow(AssetEditAction.Trim, { startTime: 0, endTime: 1 }),
       assetEditRow(AssetEditAction.Adjust, { exposure: 20, invert: true }),
     ]),
   );
@@ -749,16 +748,11 @@ describe(SyncService.name, () => {
         { appVersion: '5.6.0', label: 'an old app' },
         { appVersion: '5.7.0', label: 'a new app' },
         { appVersion: null, label: 'an unknown app' },
-      ])('should send every crop, rotate, mirror and trim edit to $label', async ({ appVersion }) => {
+      ])('should send every crop, rotate and mirror edit to $label', async ({ appVersion }) => {
         const actions = await streamAssetEdits(sut, mocks, syncSubs, appVersion);
 
         expect(actions).toEqual(
-          expect.arrayContaining([
-            AssetEditAction.Crop,
-            AssetEditAction.Rotate,
-            AssetEditAction.Mirror,
-            AssetEditAction.Trim,
-          ]),
+          expect.arrayContaining([AssetEditAction.Crop, AssetEditAction.Rotate, AssetEditAction.Mirror]),
         );
       });
 

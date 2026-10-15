@@ -2805,7 +2805,6 @@ describe(AssetService.name, () => {
           livePhotoVideoId: null,
           originalPath: '/data/image.jpg',
           originalFileName: 'image.jpg',
-          duration: null,
           exifImageWidth: 1920,
           exifImageHeight: 1080,
           orientation: null,

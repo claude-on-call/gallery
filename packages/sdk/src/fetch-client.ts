@@ -1821,12 +1821,22 @@ export type RotateParameters = {
 export type MirrorParameters = {
     axis: MirrorAxis;
 };
+export type AdjustParameters = {
+    /** Contrast adjustment, -100 to 100 */
+    contrast?: number;
+    /** Exposure adjustment, -100 to 100 */
+    exposure?: number;
+    /** Invert colors (for scanned film negatives) */
+    invert?: boolean;
+    /** Saturation adjustment, -100 to 100 */
+    saturation?: number;
+};
 export type AssetEditActionItemResponseDto = {
     action: AssetEditAction;
     /** Asset edit ID */
     id: string;
-    /** List of edit actions to apply (crop, rotate, or mirror) */
-    parameters: CropParameters | RotateParameters | MirrorParameters;
+    /** List of edit actions to apply (crop, rotate, mirror, or adjust) */
+    parameters: CropParameters | RotateParameters | MirrorParameters | AdjustParameters;
 };
 export type AssetEditsResponseDto = {
     /** Asset ID these edits belong to */
@@ -1836,8 +1846,8 @@ export type AssetEditsResponseDto = {
 };
 export type AssetEditActionItemDto = {
     action: AssetEditAction;
-    /** List of edit actions to apply (crop, rotate, or mirror) */
-    parameters: CropParameters | RotateParameters | MirrorParameters;
+    /** List of edit actions to apply (crop, rotate, mirror, or adjust) */
+    parameters: CropParameters | RotateParameters | MirrorParameters | AdjustParameters;
 };
 export type AssetEditsCreateDto = {
     /** List of edit actions to apply (crop, rotate, or mirror) */
@@ -11629,7 +11639,8 @@ export enum Type {
 export enum AssetEditAction {
     Crop = "crop",
     Rotate = "rotate",
-    Mirror = "mirror"
+    Mirror = "mirror",
+    Adjust = "adjust"
 }
 export enum MirrorAxis {
     Horizontal = "horizontal",
