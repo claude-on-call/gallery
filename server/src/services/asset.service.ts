@@ -889,8 +889,7 @@ export class AssetService extends BaseService {
     // mobile/lib/domain/services/asset.service.dart calls removeEdits for an empty list), so a
     // client that cannot represent `adjust` would destroy one here too. Web's own "revert to
     // original" is unaffected - it has no mobile UA, so it keeps deleting everything.
-    const existingEdits = await this.assetEditRepository.getAll(id);
-    const editsToKeep = await this.withPreservedAdjustEdit(auth, id, [], existingEdits);
+    const editsToKeep = await this.withPreservedAdjustEdit(auth, id, []);
     await this.assetEditRepository.replaceAll(id, editsToKeep);
     await this.jobRepository.queue({ name: JobName.AssetEditThumbnailGeneration, data: { id } });
 
