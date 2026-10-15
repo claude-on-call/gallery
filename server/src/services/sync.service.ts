@@ -4,12 +4,14 @@ import { DateTime, Duration } from 'luxon';
 import { Writable } from 'node:stream';
 import { OnJob } from 'src/decorators.js';
 import { AuthDto } from 'src/dtos/auth.dto.js';
+import { AssetEditAction } from 'src/dtos/editing.dto.js';
 import { SyncAckDeleteDto, SyncAckSetDto, SyncStreamDto, syncAlbumV2ToV1 } from 'src/dtos/sync.dto.js';
 import { JobName, MemoryType, QueueName, SyncEntityType, SyncRequestType } from 'src/enum.js';
 import { GallerySyncStreams } from 'src/gallery/utils/gallery-sync.streams.js';
 import { SyncQueryOptions } from 'src/repositories/sync.repository.js';
 import { SessionSyncCheckpointTable } from 'src/schema/tables/sync-checkpoint.table.js';
 import { BaseService } from 'src/services/base.service.js';
+import { ClientCapability, clientSupports } from 'src/utils/client-capability.js';
 import { ClientDisconnectedError } from 'src/utils/response.js';
 import {
   COMPLETE_ID,
@@ -159,6 +161,18 @@ export class SyncService extends BaseService {
 
     const forkAwareClient = GallerySyncStreams.isForkAwareClient(dto);
 
+    // Same hazard as the fork-only memory types gated by forkAwareClient, for the `adjust` asset-edit action added by
+    // PR #1124: a mobile app built before that PR has a generated Dart `AssetEditAction` that does
+    // not contain `adjust`, its `fromJson` returns null for the unrecognized string, and the
+    // resulting exception fails the whole sync batch rather than the single edit. The batch is
+    // then never acknowledged, so every retry replays the same failure - one `adjust` edit saved
+    // on web is enough to wedge another user's phone sync permanently, and since #734 a space
+    // editor can create one on an asset they do not own. Server and mobile release independently,
+    // so there is no way to ship the Dart fix to apps that are already installed; the server has
+    // to stop sending what they cannot parse. Unknown versions count as unsupported - see
+    // clientSupports().
+    const supportsAdjustEdits = clientSupports(session.appVersion, ClientCapability.AdjustEdits);
+
     const handlers: Record<SyncRequestType, () => Promise<void>> = {
       // deprecated handlers
       [SyncRequestType.AssetsV1]: () => this.syncAssetsV1(),
@@ -172,7 +186,8 @@ export class SyncService extends BaseService {
       [SyncRequestType.PartnersV1]: () => this.syncPartnersV1(options, response, checkpointMap),
       [SyncRequestType.AssetsV2]: () => this.syncAssetsV2(options, response, checkpointMap),
       [SyncRequestType.AssetExifsV1]: () => this.syncAssetExifsV1(options, response, checkpointMap),
-      [SyncRequestType.AssetEditsV1]: () => this.syncAssetEditsV1(options, response, checkpointMap),
+      [SyncRequestType.AssetEditsV1]: () =>
+        this.syncAssetEditsV1(options, response, checkpointMap, supportsAdjustEdits),
       [SyncRequestType.PartnerAssetsV2]: () => this.syncPartnerAssetsV2(options, response, checkpointMap, session.id),
       [SyncRequestType.AssetMetadataV1]: () => this.syncAssetMetadataV1(options, response, checkpointMap, auth),
       [SyncRequestType.PartnerAssetExifsV1]: () =>
@@ -403,7 +418,12 @@ export class SyncService extends BaseService {
     }
   }
 
-  private async syncAssetEditsV1(options: SyncQueryOptions, response: Writable, checkpointMap: CheckpointMap) {
+  private async syncAssetEditsV1(
+    options: SyncQueryOptions,
+    response: Writable,
+    checkpointMap: CheckpointMap,
+    supportsAdjustEdits: boolean,
+  ) {
     const deleteType = SyncEntityType.AssetEditDeleteV1;
     const deletes = this.syncRepository.assetEdit.getDeletes({ ...options, ack: checkpointMap[deleteType] });
 
@@ -414,6 +434,15 @@ export class SyncService extends BaseService {
     const upserts = this.syncRepository.assetEdit.getUpserts({ ...options, ack: checkpointMap[upsertType] });
 
     for await (const { updateId, ...data } of upserts) {
+      // Skipped rather than rewritten into some other action: a substituted action would be a
+      // silent lie about what was done to the asset, whereas omitting it leaves the old app in the
+      // state it was in before the Adjust tool existed. Crop/rotate/mirror are untouched, and
+      // deletes carry only an edit id so they need no gate. The checkpoint still advances off any
+      // later row in the batch; if a skipped row is the last one it is simply re-read and
+      // re-skipped on the next sync, which costs nothing and cannot fail.
+      if (!supportsAdjustEdits && data.action === AssetEditAction.Adjust) {
+        continue;
+      }
       await send(response, { type: upsertType, ids: [updateId], data });
     }
   }
