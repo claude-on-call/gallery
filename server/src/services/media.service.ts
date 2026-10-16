@@ -1075,13 +1075,9 @@ export class MediaService extends BaseService {
 
   private async generateEditedThumbnails(asset: ThumbnailAsset, config: SystemConfig, localOriginalPath?: string) {
     // Gallery: the Adjust panel's colour adjustment lives beside asset_edit (src/gallery/utils/image-adjust.ts).
-    const adjust = asset.type === AssetType.Image ? await this.imageAdjustRepository.get(asset.id) : undefined;
+    const adjust = asset.type === AssetType.Image ? await this.imageAdjustRepository.getForRender(asset.id) : undefined;
     if (asset.type !== AssetType.Image || (asset.files.length === 0 && asset.edits.length === 0 && !adjust)) {
       return;
-    }
-
-    if (adjust) {
-      await this.imageAdjustRepository.markEdited(asset.id);
     }
 
     const generated =

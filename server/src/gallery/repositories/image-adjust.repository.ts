@@ -38,6 +38,18 @@ export class ImageAdjustRepository {
   }
 
   /**
+   * The adjustment the edit job renders into an image's edited outputs, keeping the image marked edited while it has
+   * one (see `markEdited`).
+   */
+  async getForRender(assetId: string): Promise<ImageAdjust | undefined> {
+    const adjust = await this.get(assetId);
+    if (adjust) {
+      await this.markEdited(assetId);
+    }
+    return adjust;
+  }
+
+  /**
    * Sets isEdited back on an adjusted asset. Removing its last crop/rotate/mirror clears the flag through Immich's
    * asset_edit_delete trigger, which does not know about the adjustment. Writes nothing when the flag is already set.
    */

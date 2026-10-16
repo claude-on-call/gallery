@@ -112,11 +112,18 @@
     />
   </HStack>
 
-  <!-- Gallery: its Edit/Crop toggle stands in for the Crop heading; the grid shows in Crop. -->
+  <!-- Gallery: the Edit/Crop toggle and Adjust sliders; the crop heading and grid show in Crop. -->
   <AdjustPanel />
 
+  <div
+    class="mt-6 flex h-10 w-full items-center justify-between text-sm"
+    class:hidden={imageAdjustManager.mode !== 'crop'}
+  >
+    <h2>{$t('crop')}</h2>
+  </div>
+
   <!-- Aspect Ratio Grid -->
-  <div class="mt-6 mb-4 grid grid-cols-2" class:hidden={imageAdjustManager.mode !== 'crop'}>
+  <div class="mb-4 grid grid-cols-2" class:hidden={imageAdjustManager.mode !== 'crop'}>
     {#each aspectRatios as ratio (ratio.value)}
       <HStack>
         <Button

@@ -92,6 +92,25 @@ describe(ImageAdjustRepository.name, () => {
     await expect(isEdited(asset.id)).resolves.toBe(true);
   });
 
+  it('reads the adjustment for rendering and marks the asset edited again', async () => {
+    const { asset, sut } = await setup();
+    await addCrop(asset.id);
+    await sut.upsert(asset.id, adjust);
+    await defaultDatabase.deleteFrom('asset_edit').where('assetId', '=', asset.id).execute();
+
+    await expect(sut.getForRender(asset.id)).resolves.toEqual(adjust);
+
+    await expect(isEdited(asset.id)).resolves.toBe(true);
+  });
+
+  it('leaves an unadjusted asset alone when reading for rendering', async () => {
+    const { asset, sut } = await setup();
+
+    await expect(sut.getForRender(asset.id)).resolves.toBeUndefined();
+
+    await expect(isEdited(asset.id)).resolves.toBe(false);
+  });
+
   it('cascades with the asset', async () => {
     const { ctx, asset, sut } = await setup();
     await sut.upsert(asset.id, adjust);
