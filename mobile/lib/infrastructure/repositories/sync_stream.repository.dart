@@ -1128,8 +1128,5 @@ extension on api.AssetEditAction {
     api.AssetEditAction.crop => AssetEditAction.crop,
     api.AssetEditAction.rotate => AssetEditAction.rotate,
     api.AssetEditAction.mirror => AssetEditAction.mirror,
-    // gallery-fork: `adjust` (exposure/contrast/saturation/invert, #1124) is web-only
-    // for now: no mobile UI or local model exists for it yet.
-    api.AssetEditAction.adjust => AssetEditAction.other,
   };
 }

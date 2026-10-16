@@ -2,211 +2,110 @@
 
 ## Summary
 
-Add a new edit action, `Adjust`, alongside the existing
-`Crop`/`Rotate`/`Mirror`/`Trim`. Edits are stored as parameters and
-applied on demand, so the original file is never modified and the edit
-can always be reverted from within the app — but not once the asset
-leaves it: a downloaded copy has the edit baked into its pixels with no
-attached history, and re-uploading it (here or anywhere else) makes it a
-fresh asset with no way to tell it was ever edited. Adds a mode toggle
-below Orientation in the existing Transform tool panel, switching
-between the current Crop UI and a new Edit UI with sliders.
+The image editor gains colour adjustments next to crop, rotate and mirror: exposure, contrast and saturation
+(-100..100, 0 = unchanged) and an invert switch for scanned film negatives. Like the other edits they are stored as
+parameters and rendered into the asset's edited thumbnails, so the original file is never modified and the adjustment
+can be undone in the app. A downloaded or re-uploaded copy is a flat file with the adjustment baked in.
+
+The editor shows the controls inside the Transform tool: a toggle below Orientation switches between the sliders
+(Edit, the default) and Immich's aspect-ratio grid (Crop). Both belong to one Save.
 
 ## Roadmap
 
-- **Starting sensibly: v1 (web)** — scope: exposure, contrast,
-  saturation, invert. All four have an exact, already-worked-out server
-  implementation (see Design).
-- **v2 (web)**, shortly after v1's approved: highlights/shadows
-  curve, sharpness, masking (each only if it works out well).
-  All three need real design work beyond a single `sharp`
-  call (no built-in tone-curve primitive, sharpness has no CSS preview
-  equivalent, masking needs a selection/brush UI that doesn't exist).
-- **v3 (mobile, Android)**: port whatever worked from v1+v2 to the
-  Flutter mobile app. Not scoped in any detail yet. The design work
-  starts once v1/v2 have proven the server-side model is right.
+- **v1 (web)**: exposure, contrast, saturation, invert.
+- **v2 (web)**: highlights/shadows curve, sharpness, masking, each only if it works out. None has a CSS filter
+  equivalent, so v2 needs its own preview design.
+- **v3 (mobile)**: not scoped. Until then the mobile app shows adjusted photos (its thumbnails are the server's edited
+  ones) and keeps the adjustment when it crops, rotates, mirrors or reverts a photo, but cannot change it.
 
-## Design (v1, web)
+## Storage: a side table, not an `asset_edit` action
 
-**Schema** (`editing.dto.ts`): add `Adjust = 'adjust'` to `AssetEditAction`,
-plus an `AdjustParametersSchema` — three numeric fields (exposure,
-contrast, saturation) each -100 to +100, plus a boolean invert flag,
-default 0/off, all optional. This slots into the existing discriminated
-union and parameter-key map like the other four actions, no changes
-needed to the union/uniqueness logic itself.
+The adjustment lives in `asset_image_adjust` (one row per asset, `assetId` primary key, cascade with the asset),
+behind `GET/PUT/DELETE /assets/{id}/adjust` in `GalleryAssetController`. It is **not** an `adjust` action in
+Immich's `asset_edit`. The first version of this PR (#1124) did that, and the review rejected it:
 
-Additive for v2: Zod object
-schemas don't require uniform field types, so a future field is
-non-breaking regardless of shape — a scalar like `sharpness: z.number()`
-and a structured one like `curve: z.array(z.object({ x, y }))` for a
-highlights/shadows tone curve are both just one more optional key on the
-same object. The existing parameter-key-map validation pattern
-(`Object.keys(Schema.shape)`) already walks whatever keys exist without
-assuming they're numbers, so this holds through the whole validation
-path, not just the raw type. No pre-emptive redesign needed when v2
-is built. This forms part of ease of maintenance, more features can be added later. 
+1. **Every installed app breaks on it.** `asset_edit` rows reach the mobile app through the `AssetEditsV1` sync
+   stream. The generated Dart `AssetEditAction.fromJson` returns null for an unknown value, the non-null assertion in
+   `SyncAssetEditV1.fromJson` throws, the whole batch fails and is never acknowledged, and every retry replays it.
+   Stock Immich apps and every Gallery app released before the change (5.7.x, 5.8.0, 5.9.0-rc.0) have no `adjust`.
+   The version gate the first version added let all of those through; a gate keyed to a future release number is
+   fragile by nature.
+2. **The mobile editor would delete it.** Mobile maps unknown actions to `other` and filters them out before the
+   editor opens, then saves with `replaceAll()`, a full replace. Preserving the row needed User-Agent sniffing in
+   `AssetService.editAsset`/`removeAssetEdits`, auth-session fields and a client-capability module: new logic in
+   upstream files.
+3. **It breaks the layering rules** (CLAUDE.md, "Gallery sits on top of Immich"): Immich's tables keep Immich's
+   meaning (rule 1), switching back stays safe (rule 3), upstream files carry hooks, not logic (rule 5). Video trims
+   left `asset_edit` for `asset_video_trim` in wave 3 (#1186) for the same reasons; this follows that precedent.
 
-**Server processing**: implemented to match the CSS Filter
-Effects spec pixel-for-pixel so the live preview and the saved result are accurate:
-- Exposure, contrast: `sharp().linear(a, b)` with `a`/`b` computed from
-  the same formulas CSS `brightness()`/`contrast()` use.
-- Saturation: `sharp().recomb()` with the CSS `saturate()` matrix
-  constants, **not** `.modulate({ saturation })` — modulate works in HSL
-  space and visibly disagrees with CSS's RGB-matrix approach at the same
-  parameter value.
-- Invert: expressed as part of the same `linear(a, b)` call as
-  exposure/contrast (`v -> range - v` is just `a = -1, b = range`), not
-  `sharp().negate()` — see the gotcha below for why.
+With the side table, `asset_edit` and its sync stream stay upstream-shaped, so no client sees anything new; the mobile
+editor's full replace of `asset_edit` cannot touch the adjustment; and no request classification is needed.
 
-**Two real sharp gotchas found in testing, neither obvious from its
-docs**:
-1. `.linear(a, b)` is a single option slot on the pipeline, not a queue
-   of operations — sharp's native code always applies recomb, then
-   linear, regardless of the order these are called in JS, and a second
-   `.linear()` call silently *overwrites* the first rather than composing
-   with it. So exposure and contrast are pre-combined into a single
-   equivalent `(a, b)` pair before the one `.linear()` call — calling it
-   twice for exposure then contrast was dropping exposure entirely
-   whenever contrast was also set.
-2. `.recomb()` (used for saturation) followed by `.negate()` produces
-   all-zero output — reproduced even with a plain identity recomb matrix,
-   so it isn't specific to this formula, and it happens regardless of
-   whether anything runs between the two calls. `.recomb()` then
-   `.linear()` composes correctly, so invert is folded into the same
-   `(a, b)` pair as exposure/contrast — substituting `range - v` for `v`
-   in `amount * v + offset` gives `-amount * v + (amount * range +
-   offset)`, still one linear() call, applied whenever invert is on even
-   if exposure and contrast are both untouched. This is also what makes
-   invert *feel* like it runs before exposure/contrast (a negative
-   exposure value darkens an inverted film negative instead of
-   brightening it) — folding it into the same transform as "invert the
-   input first, then apply (amount, offset)" is what produces that,
-   not any actual reordering of calls.
+`1799000000000-AddAssetImageAdjustTable` creates the table and moves any `adjust` row a pre-release build wrote into
+it. Its `down()` cannot move the values anywhere an older Gallery could read, so it drops the adjusted files and clears
+the thumbhash, and the missing-thumbnails job regenerates them from `asset_edit` alone. `scripts/revert-to-immich.sql`
+does the same before dropping the table; the revert CI job seeds an adjusted photo and checks both.
 
-A third gotcha existed here briefly (`.recomb()` narrowing a non-sRGB
-pipeline's data to 8-bit while `linear()`'s coefficients were still
-computed for 16-bit, clipping saturation+contrast/invert to solid
-black/white on any non-sRGB photo) but it's gone, not fixed-and-kept: the
-2026-10-08 rebase below moved Adjust onto a pass that's unconditionally
-8-bit, so the bug's precondition no longer exists. No code or test
-describes it any more — see that section for the real current behaviour.
+## `isEdited`
 
-**Old mobile apps must not be sent `adjust` edits.** The new action flows
-into the `AssetEditV1` delta-sync stream, and a mobile app built before
-this feature has a generated Dart enum without `adjust`. Its `fromJson`
-returns null for the unrecognized string and the non-null assertion on it
-throws — inside `_parseLines()`, before any per-entity handling, so the
-whole batch dies rather than the one edit. The batch is then never
-acknowledged, the checkpoint never advances, and every retry replays the
-same failure: one `adjust` edit saved on web permanently wedges that
-user's phone sync. Server and mobile release independently, so there is no
-way to ship the Dart fix to already-installed apps; the server has to
-withhold what they cannot parse. `clientSupports()`
-(`server/src/utils/client-capability.ts`) is the server-side counterpart
-to mobile's `ServerCapability` and gates this on the app version parsed
-from the request's `User-Agent`, with unknown counting as unsupported.
-The websocket `AssetEditReadyV2` path needs no gate — its handler wraps
-the same parse in a try/catch, so it degrades to "edit not applied"
-instead of wedging.
+The adjusted thumbnails are the asset's edited ones, so `asset.isEdited` must be true while an adjustment exists.
+`ImageAdjustRepository.upsert` sets it; `delete` clears it only when no `asset_edit` row and no trim remains.
+Immich's `asset_edit_delete` trigger clears it when the last crop/rotate/mirror goes, unaware of the adjustment, so
+the edit job (`MediaService.generateEditedThumbnails`) calls `markEdited` whenever it renders an adjustment. A trigger
+was rejected: it would add a fork trigger, `migration_overrides` rows and parity specs to an upstream table, and the
+edit job runs after every edit change anyway.
 
-**Where it runs (revised 2026-10-08, Immich v3.3.0 rebase)**: upstream
-v3.3 stopped applying edits in the decode pipeline. `decodeImage()` now
-returns an unedited 8-bit bitmap, and each output (thumbnail, preview,
-fullsize, thumbhash) runs `transform()`, which applies crop/rotate/mirror
-and the resize in **linear-light scRGB**. The CSS formulas above are
-defined on gamma-encoded values, so Adjust can't join that pass without
-drifting from the live preview. It runs as a separate pass
-(`MediaRepository.adjust()`) on the bitmap `transform()` returns, after
-geometry and resize. That matches the preview, which also filters the
-scaled image on screen. Two consequences:
-- The value range is always 0–255. `transform()`'s raw output is always
-  8-bit, wide-gamut sources included; the colourspace is tagged on
-  afterwards and isn't stored in the pixel depth. The old
-  "16-bit midpoint for non-sRGB pipelines" rule no longer applies.
-- The scRGB pass reports `premultiplied: true` on its output info but
-  returns straight-alpha bytes. `adjust()` clears the flag before
-  re-reading the bitmap; otherwise sharp un-premultiplies again and
-  corrupts semi-transparent pixels (there is a regression test for this).
+## Rendering
 
-**Old mobile apps must also not be allowed to delete `adjust` edits.**
-Not being sent the record is only half the problem: because mobile maps
-`adjust` to its `other` sentinel and `remote_asset.repository.dart`'s
-`getAssetEdits()` filters every `other` row out, the mobile editor opens
-without ever knowing an `adjust` edit exists. It then submits the
-crop/rotate/mirror it does know about, and `AssetEditRepository.replaceAll()`
-is a true full replace — so saving a crop on the phone silently destroyed
-an Adjust edit made on web. Both of the mobile editor's save paths are
-affected: a non-empty edit list goes to `editAsset()`, and an empty one
-(every spatial edit cleared) goes to `removeAssetEdits()` via
-`applyEdits()` in `mobile/lib/domain/services/asset.service.dart`.
-`withPreservedAdjustEdit()` (`asset.service.ts`) carries the stored
-`adjust` edit over on both, appended last so crop stays the first action.
+`applyImageAdjust` (`server/src/gallery/utils/image-adjust.ts`) renders exactly what the browser previews with
+`imageAdjustFilter` (`web/src/lib/gallery/edit/image-adjust.ts`): the CSS filter list
+`saturate() invert() brightness() contrast()`, each function as the Filter Effects spec defines it.
 
-The gate there is **`session.isMobileApp` AND an unsupported
-`appVersion`**, never the version alone, and that distinction is the whole
-reason `isMobileAppUA()` exists alongside `getAppVersionFromUA()`.
-Omission is how web *deletes* an action: `TransformManager.getEdits()`
-drops `adjust` once all four sliders and invert are back at their
-defaults, and `onActivate()` pre-populates them from the existing edit, so
-a user can open the editor, see the saved values, zero them out and save —
-a deliberate removal that must be honoured. A browser reports no
-`appVersion` either, so `!clientSupports(appVersion, …)` is equally true
-of every web save; preserving on that condition alone would undo every
-deliberate web removal, a worse bug than the one being fixed. Only the
-`User-Agent` scheme separates "is the mobile app, version unreadable"
-from "is not the mobile app at all".
+- **Clamping between steps.** Browsers clamp each filter function's output to the colour range before the next one
+  runs. The first version folded exposure and contrast into one `sharp().linear(a, b)` call, which does not: exposure
+  +100 then contrast -50 turned red 199 into 255 on the server and 191 in the browser. Measured in headless Chromium,
+  the per-step implementation now matches the preview within ±1 for that case and a combined edit.
+- **Plain arithmetic, not sharp.** `linear`, `recomb` and `negate` are single option slots libvips applies in a fixed
+  order with no clamping between them (and `recomb` then `negate` produced black), so the function walks the raw
+  buffer: one lookup table when saturation is unchanged, the `saturate()` matrix per pixel otherwise. 8-bit and 16-bit
+  buffers are handled; alpha is left untouched.
+- **Encoded values, after geometry.** Since Immich v3.3, `MediaRepository.transform()` applies crop/rotate/mirror and
+  the resize in linear-light scRGB. The CSS functions are defined on encoded values, so the adjustment runs on that
+  pass's output (one hook in `transform()`, fed by an `adjust` field on `TransformOptions`), as the browser filters
+  the scaled image on screen. The scRGB pass flags its output premultiplied while returning straight alpha; the
+  function reads it as straight alpha.
+- **Invert first.** On a film negative the user wants exposure and contrast to act on the positive they see, so invert
+  runs before them: a negative exposure darkens.
 
-`trim` is mapped to `other` and filtered on mobile identically but needs
-no such handling: it is video-only and `editAsset()` already rejects
-mixing trim with spatial edits, so the mobile image editor can never
-submit an action set that collides with a stored trim.
+Only the edited outputs get the adjustment (`generateImageThumbnails` passes it when `useEdits`), including the
+thumbhash; the original thumbnails stay unadjusted.
 
-**Client**: not a new top-level tool. `EditManager.applyEdits()` only ever
-submits the *selected* tool's manager's `.edits` — one manager per
-top-level tool — and Edit/Crop are both modes inside Transform, not a
-second icon in the top bar. A separate `EditToolManager` for Adjust would
-never actually get its edits sent. Instead:
-- `TransformManager` (`transform-manager.svelte.ts`) gains four new
-  `$state` fields (`exposure`, `contrast`, `saturation`, `invert`) and
-  folds an `Adjust` action into its existing `getEdits()` alongside
-  Crop/Mirror/Rotate, same pattern those three already use (conditional
-  push based on whether the value differs from default).
-- `onActivate()` gains an adjust branch next to the existing
-  rotate/mirror parsing, pre-populating the four fields from any
-  existing `Adjust` edit — same mechanism, not a new one.
-- `resetAllChanges()`/`reset()` clear the four fields alongside the
-  existing rotation/mirror/crop reset.
-- `AdjustPanel.svelte` is a new child component, rendered conditionally
-  by `TransformTool.svelte` based on the mode toggle — a sibling to the
-  existing crop-grid markup in the same file, not a new entry in
-  `EditManager.tools`.
+## Web client
 
-**UI placement**: inside `TransformTool.svelte`, a toggle below the
-existing "Orientation" section switches between the new sliders (Edit,
-left, default) and the current aspect-ratio grid (Crop, right). Both
-remain part of the same Transform tool/edit set — Crop and Adjust actions
-can coexist in one save button, this is purely which panel is shown.
-Edit defaults to active since it's the reason someone opens this panel
-in the new flow, not crop.
+All fork code is in `web/src/lib/gallery/edit/`:
 
-**Slider interaction**: double-click/double-tap a slider resets that one
-field to 0, independent of the others. Invert is a plain on/off toggle,
-not a slider — an `@immich/ui` `Switch`, the same control already used
-for every other on/off setting in the app (e.g. Notifications), not a
-button styled to look toggled.
+- `ImageAdjustManager` holds the slider state and the server's value, loads it on activation and saves it with
+  `PUT` (or `DELETE` once everything is neutral). `hasChanges` compares against the loaded value, so loading counts
+  as no change.
+- `withImageAdjust(transformManager)` wraps the transform tool's manager in `EditManager.tools` (the only upstream
+  change in `edit-manager.svelte.ts`). Changes, reset and the discard prompt cover both; its `save` writes the
+  adjustment first and, if crop/rotate/mirror changed too, waits for that edit job's `AssetEditReadyV2` before saving
+  them, so two edit jobs never render the same asset at once (the editor queue runs two jobs concurrently). Whether
+  crop/rotate/mirror changed is judged against the edits the tool opened with, because Immich's "Reset changes" does
+  not set the transform tool's `hasChanges`.
+- `AdjustPanel.svelte` renders the Edit/Crop toggle and the sliders (double-click resets one) and the invert `Switch`.
+  `TransformTool.svelte` renders it in place of the Crop heading and hides the aspect-ratio grid in Edit;
+  `CropArea.svelte` applies the CSS filter to the preview image and hides the crop overlay and frame in Edit (hidden,
+  not unmounted, because `draw()` keeps writing the frame's position).
 
-**Live preview**: CSS `filter: saturate() invert() brightness() contrast()`
-— native, cheap, and matches the server's actual pipeline order exactly
-(saturation always first, negate always last relative to linear, per the
-sharp gotcha above), so what's shown while dragging a slider is the same
-result that gets saved, not an approximation.
+## Testing
 
-## Testing (v1, web)
-
-- Server: unit tests per adjustment op (known input to expected pixel
-  output, sharp-level), schema validation tests (range limits, invalid
-  combinations).
-- Client: manager unit tests (edit-state transitions, reset behavior),
-  matching the existing transform-manager test pattern.
-- Manual: real round-trip on a live instance — apply, save, reload, download,
-  confirm the persisted asset matches what was previewed.
+- Server unit: `image-adjust.spec.ts` (each function, clamping order, browser-measured values, alpha, grey, 16-bit),
+  `media.repository.spec.ts` (through sharp: P3 decode, straight alpha, after crop, thumbhash), `media.service.spec.ts`
+  (edit job with and without other edits, `markEdited`, originals unadjusted), `gallery-asset.service.spec.ts` and
+  the controller spec (validation, neutral values remove, the images Immich refuses to edit, space-edit logging).
+- Server medium: the repository's `isEdited` rules against a real database, the migration's up/down, schema drift.
+- Web unit: the manager and the wrapper's save sequencing, including "Reset changes".
+- Revert CI: an adjusted photo survives the stock Immich trial and is cleaned by the revert.
+- Manual: headless Chromium against a local stack: preview vs saved pixels, combined rotate + adjust save, reset,
+  discard prompt, and a mobile user agent cropping and reverting an adjusted photo.

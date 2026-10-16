@@ -1804,6 +1804,26 @@ export type UpdateAssetDto = {
     rating?: number | null;
     visibility?: AssetVisibility;
 };
+export type AssetImageAdjustResponseDto = {
+    /** Contrast, -100 to 100 (CSS contrast, 0 = unchanged) */
+    contrast: number;
+    /** Exposure, -100 to 100 (CSS brightness, 0 = unchanged) */
+    exposure: number;
+    /** Invert the colours, for scanned film negatives */
+    invert: boolean;
+    /** Saturation, -100 to 100 (CSS saturate, 0 = unchanged) */
+    saturation: number;
+};
+export type AssetImageAdjustDto = {
+    /** Contrast, -100 to 100 (CSS contrast, 0 = unchanged) */
+    contrast?: number;
+    /** Exposure, -100 to 100 (CSS brightness, 0 = unchanged) */
+    exposure?: number;
+    /** Invert the colours, for scanned film negatives */
+    invert?: boolean;
+    /** Saturation, -100 to 100 (CSS saturate, 0 = unchanged) */
+    saturation?: number;
+};
 export type CropParameters = {
     /** Height of the crop */
     height: number;
@@ -1821,22 +1841,12 @@ export type RotateParameters = {
 export type MirrorParameters = {
     axis: MirrorAxis;
 };
-export type AdjustParameters = {
-    /** Contrast adjustment, -100 to 100 */
-    contrast?: number;
-    /** Exposure adjustment, -100 to 100 */
-    exposure?: number;
-    /** Invert colors (for scanned film negatives) */
-    invert?: boolean;
-    /** Saturation adjustment, -100 to 100 */
-    saturation?: number;
-};
 export type AssetEditActionItemResponseDto = {
     action: AssetEditAction;
     /** Asset edit ID */
     id: string;
-    /** List of edit actions to apply (crop, rotate, mirror, or adjust) */
-    parameters: CropParameters | RotateParameters | MirrorParameters | AdjustParameters;
+    /** List of edit actions to apply (crop, rotate, or mirror) */
+    parameters: CropParameters | RotateParameters | MirrorParameters;
 };
 export type AssetEditsResponseDto = {
     /** Asset ID these edits belong to */
@@ -1846,8 +1856,8 @@ export type AssetEditsResponseDto = {
 };
 export type AssetEditActionItemDto = {
     action: AssetEditAction;
-    /** List of edit actions to apply (crop, rotate, mirror, or adjust) */
-    parameters: CropParameters | RotateParameters | MirrorParameters | AdjustParameters;
+    /** List of edit actions to apply (crop, rotate, or mirror) */
+    parameters: CropParameters | RotateParameters | MirrorParameters;
 };
 export type AssetEditsCreateDto = {
     /** List of edit actions to apply (crop, rotate, or mirror) */
@@ -6558,6 +6568,46 @@ export function updateAsset({ id, updateAssetDto }: {
         ...opts,
         method: "PUT",
         body: updateAssetDto
+    })));
+}
+/**
+ * Remove the colour adjustment of an image
+ */
+export function removeAssetAdjust({ id }: {
+    id: string;
+}, opts?: Oazapfts.RequestOpts) {
+    return oazapfts.ok(oazapfts.fetchText(`/assets/${encodeURIComponent(id)}/adjust`, {
+        ...opts,
+        method: "DELETE"
+    }));
+}
+/**
+ * Retrieve the colour adjustment of an image
+ */
+export function getAssetAdjust({ id }: {
+    id: string;
+}, opts?: Oazapfts.RequestOpts) {
+    return oazapfts.ok(oazapfts.fetchJson<{
+        status: 200;
+        data: AssetImageAdjustResponseDto;
+    }>(`/assets/${encodeURIComponent(id)}/adjust`, {
+        ...opts
+    }));
+}
+/**
+ * Adjust the colours of an image
+ */
+export function updateAssetAdjust({ id, assetImageAdjustDto }: {
+    id: string;
+    assetImageAdjustDto: AssetImageAdjustDto;
+}, opts?: Oazapfts.RequestOpts) {
+    return oazapfts.ok(oazapfts.fetchJson<{
+        status: 200;
+        data: AssetImageAdjustResponseDto;
+    }>(`/assets/${encodeURIComponent(id)}/adjust`, oazapfts.json({
+        ...opts,
+        method: "PUT",
+        body: assetImageAdjustDto
     })));
 }
 /**
@@ -11639,8 +11689,7 @@ export enum Type {
 export enum AssetEditAction {
     Crop = "crop",
     Rotate = "rotate",
-    Mirror = "mirror",
-    Adjust = "adjust"
+    Mirror = "mirror"
 }
 export enum MirrorAxis {
     Horizontal = "horizontal",

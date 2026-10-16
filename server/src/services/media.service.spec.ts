@@ -1586,6 +1586,86 @@ describe(MediaService.name, () => {
       );
     });
 
+    // Gallery: the colour adjustment lives in asset_image_adjust, not asset_edit (src/gallery/utils/image-adjust.ts).
+    describe('with an image adjustment', () => {
+      const adjust = { exposure: 20, contrast: 0, saturation: 0, invert: true };
+
+      it('should generate the edited files for an image whose only edit is the adjustment', async () => {
+        const asset = AssetFactory.from().exif().build();
+        mocks.assetJob.getForGenerateThumbnailJob.mockResolvedValue(getForGenerateThumbnail(asset));
+        mocks.imageAdjust.get.mockResolvedValue(adjust);
+        mocks.media.generateThumbhash.mockResolvedValue(factory.buffer());
+
+        await sut.handleAssetEditThumbnailGeneration({ id: asset.id });
+
+        expect(mocks.media.generateThumbnail).toHaveBeenCalledTimes(3);
+        expect(mocks.media.generateThumbnail).toHaveBeenCalledWith(
+          { data: rawBuffer, info: rawInfo },
+          expect.objectContaining({ edits: [], adjust }),
+          expect.stringContaining('preview_edited.jpeg'),
+        );
+        expect(mocks.media.generateThumbhash).toHaveBeenCalledWith(
+          { data: rawBuffer, info: rawInfo },
+          expect.objectContaining({ adjust }),
+        );
+        expect(mocks.asset.upsertFiles).toHaveBeenCalledWith(
+          expect.arrayContaining([expect.objectContaining({ type: AssetFileType.Preview, isEdited: true })]),
+        );
+      });
+
+      it('should apply the adjustment together with crop, rotate and mirror', async () => {
+        const asset = AssetFactory.from().exif().edit({ action: AssetEditAction.Rotate }).build();
+        mocks.assetJob.getForGenerateThumbnailJob.mockResolvedValue(getForGenerateThumbnail(asset));
+        mocks.imageAdjust.get.mockResolvedValue(adjust);
+
+        await sut.handleAssetEditThumbnailGeneration({ id: asset.id });
+
+        expect(mocks.media.generateThumbnail).toHaveBeenCalledWith(
+          { data: rawBuffer, info: rawInfo },
+          expect.objectContaining({ edits: [expect.objectContaining({ action: 'rotate' })], adjust }),
+          expect.stringContaining('thumbnail_edited.webp'),
+        );
+      });
+
+      it('should mark the asset edited again, as removing its last crop/rotate/mirror clears the flag', async () => {
+        const asset = AssetFactory.from().exif().build();
+        mocks.assetJob.getForGenerateThumbnailJob.mockResolvedValue(getForGenerateThumbnail(asset));
+        mocks.imageAdjust.get.mockResolvedValue(adjust);
+
+        await sut.handleAssetEditThumbnailGeneration({ id: asset.id });
+
+        expect(mocks.imageAdjust.markEdited).toHaveBeenCalledWith(asset.id);
+      });
+
+      it('should not adjust the original (unedited) thumbnails', async () => {
+        const asset = AssetFactory.from().exif().build();
+        mocks.assetJob.getForGenerateThumbnailJob.mockResolvedValue(getForGenerateThumbnail(asset));
+        mocks.imageAdjust.get.mockResolvedValue(adjust);
+
+        await sut.handleGenerateThumbnails({ id: asset.id });
+
+        expect(mocks.media.generateThumbnail).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({ adjust: undefined }),
+          expect.stringContaining('preview.jpeg'),
+        );
+        expect(mocks.media.generateThumbnail).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({ adjust }),
+          expect.stringContaining('preview_edited.jpeg'),
+        );
+      });
+
+      it('should not look up an adjustment for a video', async () => {
+        const asset = AssetFactory.from({ type: AssetType.Video }).exif().build();
+        mocks.assetJob.getForGenerateThumbnailJob.mockResolvedValue(getForGenerateThumbnail(asset));
+
+        await sut.handleAssetEditThumbnailGeneration({ id: asset.id });
+
+        expect(mocks.imageAdjust.get).not.toHaveBeenCalled();
+      });
+    });
+
     it('should generate the original thumbhash if no edits exist', async () => {
       const asset = AssetFactory.from().exif().build();
       mocks.assetJob.getForGenerateThumbnailJob.mockResolvedValue(getForGenerateThumbnail(asset));
