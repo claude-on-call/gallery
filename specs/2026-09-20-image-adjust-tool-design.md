@@ -51,7 +51,7 @@ does the same before dropping the table; the revert CI job seeds an adjusted pho
 The adjusted thumbnails are the asset's edited ones, so `asset.isEdited` must be true while an adjustment exists.
 `ImageAdjustRepository.upsert` sets it; `delete` clears it only when no `asset_edit` row and no trim remains.
 Immich's `asset_edit_delete` trigger clears it when the last crop/rotate/mirror goes, unaware of the adjustment, so
-the edit job (`MediaService.generateEditedThumbnails`) calls `markEdited` whenever it renders an adjustment. A trigger
+the edit job (`MediaService.generateEditedThumbnails`) reads the adjustment through `getForRender`, which calls `markEdited`. A trigger
 was rejected: it would add a fork trigger, `migration_overrides` rows and parity specs to an upstream table, and the
 edit job runs after every edit change anyway.
 
@@ -101,8 +101,8 @@ All fork code is in `web/src/lib/gallery/edit/`:
 ## Testing
 
 - Server unit: `image-adjust.spec.ts` (each function, clamping order, browser-measured values, alpha, grey, 16-bit),
-  `media.repository.spec.ts` (through sharp: P3 decode, straight alpha, after crop, thumbhash), `media.service.spec.ts`
-  (edit job with and without other edits, `markEdited`, originals unadjusted), `gallery-asset.service.spec.ts` and
+  `image-adjust.media.spec.ts` (through sharp: P3 decode, straight alpha, after crop, thumbhash),
+  `image-adjust-thumbnails.spec.ts` (edit job with and without other edits, originals unadjusted), `gallery-asset.service.spec.ts` and
   the controller spec (validation, neutral values remove, the images Immich refuses to edit, space-edit logging).
 - Server medium: the repository's `isEdited` rules against a real database, the migration's up/down, schema drift.
 - Web unit: the manager and the wrapper's save sequencing, including "Reset changes".
